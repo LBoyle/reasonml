@@ -9,10 +9,11 @@ type link = {
   uri: string
 };
 
-/* type dataType = {links: list(link)}; */
 type state = {links: list(link)};
 
 type responseType = {state};
+
+type dataType = {data: responseType};
 
 type action =
   | MyNoUpdate
@@ -28,10 +29,11 @@ let parseListItem = res => {
   uri: field("uri", string, res)
 };
 
-let parseJsonLinks = res => {links: field("links", list(parseListItem), res)};
+let parseJsonLinks = res => {links: array(parseListItem)};
 
 /* let newItem = (newVal, newId) => {someVal: newVal, id: newId}; */
-/* let parseJsonResponse = res => {data: field("data", parseLinks, res)}; */
+let parseJsonResponse = res => {data: field("data", parseJsonLinks, res)};
+
 let fetchLinks = () =>
   Js.Promise.(
     Bs_fetch.fetch("https://www.speedrun.com/api/v1")
@@ -46,7 +48,7 @@ let make = _children => {
   reducer: (action: action, state: state) =>
     switch action {
     | MyNoUpdate => ReasonReact.NoUpdate
-    | GetLinks(links) => ReasonReact.Update({links: links})
+    | GetLinks(data) => ReasonReact.Update({links: data.links})
     | AddLink(link) => ReasonReact.Update({links: [link, ...state.links]})
     },
   didMount: self => {
