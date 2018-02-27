@@ -1,86 +1,66 @@
-[%bs.raw {|require('./app.css')|}];
-
-open Json.Decode;
-
 let str = ReasonReact.stringToElement;
 
-type link = {
-  rel: string,
-  uri: string
+type routes = 
+  | LinksIndex
+  | LinkShow(string);
+
+type action = 
+  | NoUpdate
+  | ChangeRoute(routes)
+  | ShowLinksIndex
+  | ShowLinkShow(string);
+
+type stateType = {
+  currentRoute: routes
 };
 
-type stateType = {links: list(link)};
-
-type dataType = {data: stateType};
-
-type action =
-  | MyNoUpdate
-  | GetLinks(stateType)
-  | AddLink(link);
-
-/* produced an error if this line was elsewhere!?!? */
-/* I had mine above my type declarations */
 let component = ReasonReact.reducerComponent("App");
-
-let parseListItem = res => {
-  rel: field("rel", string, res),
-  uri: field("uri", string, res)
-};
-
-let parseJsonLinks = (res: Js.Json.t): stateType => {links: field("links", list(parseListItem), res)};
-
-let parseJsonResponse = (res: Js.Json.t): dataType => {data: field("data", parseJsonLinks, res)};
-
-let fetchLinks = () =>
-  Js.Promise.(
-    Bs_fetch.fetch("https://www.speedrun.com/api/v1")
-    |> then_(Bs_fetch.Response.text)
-    |> then_(
-      jsonText => {
-        let x = parseJsonResponse(Js.Json.parseExn(jsonText));
-        Js.log(x);
-        resolve(x);
-      }
-  ));
 
 let make = _children => {
   ...component,
-  initialState: () => {links: []},
-  /* the types are optional the switch statement is not */
-  reducer: (action: action, state: stateType) =>
+  initialState: () => {
+    currentRoute: LinksIndex
+  },
+  reducer: (action, state) => 
     switch action {
-    | MyNoUpdate => ReasonReact.NoUpdate
-    | GetLinks(data) => ReasonReact.Update({links: [...data.links]})
-    | AddLink(link) => ReasonReact.Update({links: [link, ...state.links]})
-    },
+    | NoUpdate => ReasonReact.NoUpdate
+    | ChangeRoute(route) => ReasonReact.Update({currentRoute: route})
+    | ShowLinksIndex => ReasonReact.Update({currentRoute: LinksIndex})
+    | ShowLinkShow(linkName) => ReasonReact.Update({currentRoute: LinkShow(linkName)})
+  },
+  subscriptions: self => [
+    Sub(
+      () => 
+      ReasonReact.Router.watchUrl(url => {
+        Js.log(url.path);
+        switch url.path {
+        | ["links", linkName] => self.send(ShowLinkShow(linkName))
+        | [] => self.send(ShowLinksIndex)
+        };
+      }),
+    ReasonReact.Router.unwatchUrl
+    )
+  ],
   didMount: self => {
-    let handleLinksLoaded = self.reduce((initLinks: stateType) => GetLinks(initLinks));
-    fetchLinks()
-    |> Js.Promise.then_((data: dataType) => {
-         handleLinksLoaded(data.data);
-         /* Js.log(handleLinksLoaded(data.data)); */
-         Js.Promise.resolve();
-       })
-    |> ignore;
+    let url = ReasonReact.Router.dangerouslyGetInitialUrl();
+    let handleGetCurrentRoute = self.reduce(route => ChangeRoute(route));
+    switch url.path {
+      | ["links", linkName] => LinkShow(linkName)
+      | _ => LinksIndex
+      }
+      |> handleGetCurrentRoute;
     ReasonReact.NoUpdate;
   },
-  render: (self) =>
+  render: self => {
+      let currentView = 
+      switch self.state.currentRoute {
+      | LinkShow(linkName) => <LinkShow link=linkName />
+      | LinksIndex => <LinksIndex />
+      };
     <div className="App">
-      <div className="App-header"> <h2> (str("Title")) </h2> </div>
-      <ul>
-        (
-          List.map(link => <li key=link.rel> (str(link.uri)) </li>, self.state.links)
-          |> Array.of_list
-          |> ReasonReact.arrayToElement
-        )
-      </ul>
+      <div className="App-header"> <h2 className="App-intro"> (str("Title")) </h2> </div>
+      currentView
     </div>
+  }
 };
-/*
- <button
-   onClick=(reduce(_e => AddLink(newItem("Hello again", numItems + 1))))>
-   (str("Click"))
- </button>
- */
-
 
