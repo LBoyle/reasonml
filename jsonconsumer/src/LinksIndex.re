@@ -80,13 +80,3 @@ let make = _children => {
       </ul>
     </div>
 };
-/* (
-     /* List.map(link => <li key=link.rel> (str(link.uri)) </li>, self.state.links) */
-     List.map((link: Types.link) =>
-       <LinkShow
-         key=link.rel
-         link />
-       , self.state.links)
-     |> Array.of_list
-     |> ReasonReact.arrayToElement
-   ) */

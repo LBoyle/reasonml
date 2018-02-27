@@ -8,16 +8,36 @@ type action =
 
 let component = ReasonReact.reducerComponent("LinkShow");
 
+let fetchLink = id =>
+  Js.Promise.(
+    Fetch.fetch("https://www.speedrun.com/api/v1/" ++ id)
+    |> then_(Fetch.Response.text)
+    |> then_(jsonText => resolve(jsonText))
+  );
+
 let make = (~link: string, _children) => {
   ...component,
   initialState: () => {rawJson: ""},
-  reducer: (action, state) =>
+  reducer: (action, _state) =>
     switch action {
     | NoUpdate => ReasonReact.NoUpdate
     | AddRecord(json) => ReasonReact.Update({rawJson: json})
     },
-  render: _self => {
+  didMount: self => {
     Js.log(link);
-    <div className="LinkShow"> <h3> (str("LinkShow")) </h3> </div>;
-  }
+    let handleLinkLoaded =
+      self.reduce(data => {
+        Js.log(data);
+        AddRecord(data);
+      });
+    fetchLink(link)
+    |> Js.Promise.then_(data => {
+         handleLinkLoaded(data);
+         Js.Promise.resolve(data);
+       })
+    |> ignore;
+    ReasonReact.NoUpdate;
+  },
+  render: _self =>
+    <div className="LinkShow"> <h3> (str("LinkShow page")) </h3> </div>
 };
